@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "mubarek.ahmed@astu.edu.et" ||
+        request.auth.token.email == "hassenmosa17@gmail.com"
+      );
+    }
+
+    // Publications
+    match /publications/{pubId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Academic Positions & Experiences
+    match /experiences/{expId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Profile Metadata
+    match /profile/{profileId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Inbound Contact Messages
+    match /contactMessages/{msgId} {
+      allow create: if incoming().name is string && incoming().name.size() > 0 && incoming().name.size() <= 200
+                   && incoming().email is string && incoming().email.size() > 0 && incoming().email.size() <= 200
+                   && incoming().subject is string && incoming().message is string;
+      allow read, update, delete: if isAdmin();
+    }
+
+  }
+}

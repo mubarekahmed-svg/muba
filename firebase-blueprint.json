@@ -1,0 +1,91 @@
+{
+  "entities": {
+    "publication": {
+      "title": "Publication",
+      "description": "Peer-reviewed academic research paper or journal publication",
+      "type": "object",
+      "properties": {
+        "id": { "type": "number", "description": "Numeric identifier of publication" },
+        "title": { "type": "string", "maxLength": 500 },
+        "authors": { "type": "string", "maxLength": 500 },
+        "journal": { "type": "string", "maxLength": 200 },
+        "year": { "type": "number" },
+        "category": { "type": "string", "maxLength": 50 },
+        "volumeIssue": { "type": "string", "maxLength": 100 },
+        "doi": { "type": "string", "maxLength": 200 },
+        "link": { "type": "string", "maxLength": 500 },
+        "abstractPreview": { "type": "string", "maxLength": 2000 }
+      },
+      "required": ["title", "journal", "year", "category"]
+    },
+    "experience": {
+      "title": "Experience",
+      "description": "Academic position or appointment item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 100 },
+        "role": { "type": "string", "maxLength": 200 },
+        "institution": { "type": "string", "maxLength": 200 },
+        "period": { "type": "string", "maxLength": 100 },
+        "location": { "type": "string", "maxLength": 200 },
+        "responsibilities": { "type": "array" }
+      },
+      "required": ["role", "institution"]
+    },
+    "profile": {
+      "title": "Profile",
+      "description": "Faculty profile information and metadata",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 200 },
+        "title": { "type": "string", "maxLength": 200 },
+        "university": { "type": "string", "maxLength": 200 },
+        "department": { "type": "string", "maxLength": 300 },
+        "location": { "type": "string", "maxLength": 300 },
+        "email": { "type": "string", "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 50 },
+        "bio": { "type": "string", "maxLength": 2000 },
+        "profileImage": { "type": "string", "maxLength": 1000 },
+        "orcid": { "type": "string", "maxLength": 100 },
+        "googleScholar": { "type": "string", "maxLength": 500 },
+        "researchGate": { "type": "string", "maxLength": 500 },
+        "officeHours": { "type": "string", "maxLength": 300 }
+      },
+      "required": ["name", "email"]
+    },
+    "contactMessage": {
+      "title": "ContactMessage",
+      "description": "Inbound academic message or inquiry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 100 },
+        "name": { "type": "string", "maxLength": 200 },
+        "email": { "type": "string", "maxLength": 200 },
+        "subject": { "type": "string", "maxLength": 300 },
+        "category": { "type": "string", "maxLength": 100 },
+        "message": { "type": "string", "maxLength": 4000 },
+        "createdAt": { "type": "string", "maxLength": 100 },
+        "read": { "type": "boolean" }
+      },
+      "required": ["name", "email", "subject", "message"]
+    }
+  },
+  "firestore": {
+    "/publications/{pubId}": {
+      "schema": { "$ref": "#/entities/publication" },
+      "description": "Indexed academic publications"
+    },
+    "/experiences/{expId}": {
+      "schema": { "$ref": "#/entities/experience" },
+      "description": "Academic positions and appointments"
+    },
+    "/profile/main": {
+      "schema": { "$ref": "#/entities/profile" },
+      "description": "Faculty profile information"
+    },
+    "/contactMessages/{msgId}": {
+      "schema": { "$ref": "#/entities/contactMessage" },
+      "description": "Academic messages and proposal inquiries"
+    }
+  }
+}
