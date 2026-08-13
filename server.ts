@@ -53,8 +53,114 @@ const validTokens = new Set<string>();
 let adminPasswords: Record<string, string> = {
   admin: 'admin123',
   hassen: 'werabe2026!',
-  manager: 'admin123'
+  manager: 'admin123',
+  mubarek: 'admin123'
 };
+
+interface AdminAccount {
+  id: string;
+  username: string;
+  email: string;
+  role: 'Super Admin' | 'Faculty Editor' | 'Reviewer';
+  status: 'Active' | 'Suspended';
+  createdAt: string;
+  lastLogin: string;
+}
+
+interface AuditLog {
+  id: string;
+  event: string;
+  user: string;
+  details: string;
+  timestamp: string;
+}
+
+interface GalleryItem {
+  id: string;
+  title: string;
+  caption: string;
+  imageUrl: string;
+  category: string;
+  date: string;
+  createdAt: string;
+}
+
+let currentGallery: GalleryItem[] = [
+  {
+    id: 'gal-1',
+    title: 'Clinical Midwifery & Maternal Care Simulation',
+    caption: 'Leading hands-on maternal health and emergency obstetric response training at Werabe University CMHS simulation lab.',
+    imageUrl: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=800',
+    category: 'Academic & Teaching',
+    date: '2026-02-15',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'gal-2',
+    title: 'Community Maternal Health Research Fieldwork',
+    caption: 'Conducting community-based epidemiological data collection on neonatal outcomes across primary healthcare units in Central Ethiopia Regional State.',
+    imageUrl: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&q=80&w=800',
+    category: 'Research & Fieldwork',
+    date: '2025-11-20',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'gal-3',
+    title: 'National Reproductive Health Symposium',
+    caption: 'Keynote presentation on evidence-based strategies for reducing birth asphyxia and intrapartum complications in Ethiopia.',
+    imageUrl: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&q=80&w=800',
+    category: 'Conferences & Symposia',
+    date: '2025-08-10',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'gal-4',
+    title: 'Werabe University CMHS Main Campus',
+    caption: 'Academic grounds and faculty building of College of Medicine and Health Sciences at Werabe University.',
+    imageUrl: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&q=80&w=800',
+    category: 'Campus Life',
+    date: '2025-05-01',
+    createdAt: new Date().toISOString()
+  }
+];
+
+let currentAdminAccounts: AdminAccount[] = [
+  {
+    id: 'usr-1',
+    username: 'admin',
+    email: 'hassenmosa17@gmail.com',
+    role: 'Super Admin',
+    status: 'Active',
+    createdAt: new Date(Date.now() - 86400000 * 30).toISOString(),
+    lastLogin: new Date().toISOString()
+  },
+  {
+    id: 'usr-2',
+    username: 'mubarek',
+    email: 'mubarek.ahmed@astu.edu.et',
+    role: 'Super Admin',
+    status: 'Active',
+    createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
+    lastLogin: new Date(Date.now() - 3600000 * 2).toISOString()
+  }
+];
+
+let currentAuditLogs: AuditLog[] = [
+  {
+    id: 'log-1',
+    event: 'ACCOUNT_LOGIN_SUCCESS',
+    user: 'admin',
+    details: 'Authenticated via Admin Portal Credentials',
+    timestamp: new Date().toISOString()
+  },
+  {
+    id: 'log-2',
+    event: 'SECURITY_RULES_ENFORCED',
+    user: 'system',
+    details: 'Firestore security rules active for admin collections',
+    timestamp: new Date(Date.now() - 3600000).toISOString()
+  }
+];
 
 // Helper Auth Check
 function isAuthenticated(req: Request): boolean {
@@ -214,6 +320,130 @@ async function startServer() {
       validTokens.delete(token);
     }
     res.json({ success: true, message: 'Logged out successfully' });
+  });
+
+  // ----------------------------------------------------
+  // ADMIN ACCOUNTS MANAGEMENT ENDPOINTS
+  // ----------------------------------------------------
+
+  // Get all admin accounts
+  app.get('/api/admin/accounts', (req: Request, res: Response) => {
+    if (!isAuthenticated(req)) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+    res.json({ accounts: currentAdminAccounts });
+  });
+
+  // Create new co-admin account
+  app.post('/api/admin/accounts', (req: Request, res: Response) => {
+    if (!isAuthenticated(req)) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+
+    const { username, email, password, role } = req.body;
+    if (!username || !email || !password) {
+      res.status(400).json({ error: 'Username, email, and password are required.' });
+      return;
+    }
+
+    const cleanUser = String(username).trim().toLowerCase();
+    if (adminPasswords[cleanUser]) {
+      res.status(400).json({ error: `Account "${cleanUser}" already exists.` });
+      return;
+    }
+
+    adminPasswords[cleanUser] = String(password).trim();
+
+    const newAcc: AdminAccount = {
+      id: `usr-${Date.now()}`,
+      username: cleanUser,
+      email: String(email).trim(),
+      role: role || 'Faculty Editor',
+      status: 'Active',
+      createdAt: new Date().toISOString(),
+      lastLogin: 'Never'
+    };
+
+    currentAdminAccounts.unshift(newAcc);
+
+    currentAuditLogs.unshift({
+      id: `log-${Date.now()}`,
+      event: 'CO_ADMIN_ACCOUNT_CREATED',
+      user: cleanUser,
+      details: `Created new admin account with role ${newAcc.role}`,
+      timestamp: new Date().toISOString()
+    });
+
+    res.status(201).json({ success: true, account: newAcc });
+  });
+
+  // Update co-admin account role / status
+  app.patch('/api/admin/accounts/:id', (req: Request, res: Response) => {
+    if (!isAuthenticated(req)) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+
+    const id = req.params.id;
+    const { role, status } = req.body;
+    const accIndex = currentAdminAccounts.findIndex(a => a.id === id);
+
+    if (accIndex === -1) {
+      res.status(404).json({ error: 'Account not found.' });
+      return;
+    }
+
+    if (role) currentAdminAccounts[accIndex].role = role;
+    if (status) currentAdminAccounts[accIndex].status = status;
+
+    currentAuditLogs.unshift({
+      id: `log-${Date.now()}`,
+      event: 'ADMIN_ACCOUNT_UPDATED',
+      user: currentAdminAccounts[accIndex].username,
+      details: `Account role updated to ${currentAdminAccounts[accIndex].role}, status ${currentAdminAccounts[accIndex].status}`,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({ success: true, account: currentAdminAccounts[accIndex] });
+  });
+
+  // Delete co-admin account
+  app.delete('/api/admin/accounts/:id', (req: Request, res: Response) => {
+    if (!isAuthenticated(req)) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+
+    const id = req.params.id;
+    const acc = currentAdminAccounts.find(a => a.id === id);
+    if (!acc) {
+      res.status(404).json({ error: 'Account not found.' });
+      return;
+    }
+
+    delete adminPasswords[acc.username];
+    currentAdminAccounts = currentAdminAccounts.filter(a => a.id !== id);
+
+    currentAuditLogs.unshift({
+      id: `log-${Date.now()}`,
+      event: 'ADMIN_ACCOUNT_REVOKED',
+      user: acc.username,
+      details: `Revoked access and deleted account for ${acc.username}`,
+      timestamp: new Date().toISOString()
+    });
+
+    res.json({ success: true, message: 'Account access revoked.' });
+  });
+
+  // Get security audit logs
+  app.get('/api/admin/audit-logs', (req: Request, res: Response) => {
+    if (!isAuthenticated(req)) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+    res.json({ logs: currentAuditLogs });
   });
 
   // ----------------------------------------------------
@@ -390,6 +620,48 @@ async function startServer() {
     };
 
     res.json({ success: true, message: 'Profile metadata updated successfully.', personalInfo: currentProfile });
+  });
+
+  // CRUD 6: Gallery Items Management
+  app.get('/api/gallery', (req: Request, res: Response) => {
+    res.json({ gallery: currentGallery });
+  });
+
+  app.post('/api/admin/gallery', (req: Request, res: Response) => {
+    if (!isAuthenticated(req)) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+
+    const { title, caption, imageUrl, category, date } = req.body;
+    if (!title || !imageUrl) {
+      res.status(400).json({ error: 'Title and image URL are required.' });
+      return;
+    }
+
+    const newItem: GalleryItem = {
+      id: `gal-${Date.now()}`,
+      title: String(title).trim(),
+      caption: caption ? String(caption).trim() : '',
+      imageUrl: String(imageUrl).trim(),
+      category: category ? String(category).trim() : 'Research & Fieldwork',
+      date: date ? String(date).trim() : new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString()
+    };
+
+    currentGallery.unshift(newItem);
+    res.status(201).json({ success: true, item: newItem, gallery: currentGallery });
+  });
+
+  app.delete('/api/admin/gallery/:id', (req: Request, res: Response) => {
+    if (!isAuthenticated(req)) {
+      res.status(401).json({ error: 'Unauthorized.' });
+      return;
+    }
+
+    const { id } = req.params;
+    currentGallery = currentGallery.filter(g => g.id !== id);
+    res.json({ success: true, message: `Gallery item ${id} deleted.`, gallery: currentGallery });
   });
 
   // CRUD 6: Contact Messages Management

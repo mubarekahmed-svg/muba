@@ -105,11 +105,49 @@ const DEFAULT_EXPERIENCES = [
   }
 ];
 
+const DEFAULT_GALLERY = [
+  {
+    id: 'gal-1',
+    title: 'Clinical Midwifery & Emergency Care Simulation',
+    caption: 'Leading hands-on maternal health and emergency obstetric response training with senior midwifery students at Werabe University CMHS simulation lab.',
+    imageUrl: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=800',
+    category: 'Academic & Teaching',
+    date: '2026-02-15'
+  },
+  {
+    id: 'gal-2',
+    title: 'Community Maternal Health Research Fieldwork',
+    caption: 'Conducting community-based epidemiological data collection on neonatal outcomes across primary healthcare units in Central Ethiopia Regional State.',
+    imageUrl: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?auto=format&fit=crop&q=80&w=800',
+    category: 'Research & Fieldwork',
+    date: '2025-11-20'
+  },
+  {
+    id: 'gal-3',
+    title: 'National Reproductive Health Symposium',
+    caption: 'Keynote presentation on evidence-based strategies for reducing birth asphyxia and intrapartum complications in regional Ethiopian hospitals.',
+    imageUrl: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&q=80&w=800',
+    category: 'Conferences & Symposia',
+    date: '2025-08-10'
+  },
+  {
+    id: 'gal-4',
+    title: 'Werabe University CMHS Campus',
+    caption: 'Academic grounds and research facility of the College of Medicine and Health Sciences at Werabe University, Ethiopia.',
+    imageUrl: 'https://images.unsplash.com/photo-1541829070764-84a7d30dd3f3?auto=format&fit=crop&q=80&w=800',
+    category: 'Campus Life',
+    date: '2025-05-01'
+  }
+];
+
 // App State
 const state = {
   profile: { ...DEFAULT_PROFILE },
   publications: [...DEFAULT_PUBLICATIONS],
   experiences: [...DEFAULT_EXPERIENCES],
+  gallery: [...DEFAULT_GALLERY],
+  galleryCategory: 'all',
+  activePhotoModal: null,
   messages: [],
   adminAccounts: [
     { id: 'usr-1', username: 'admin', email: 'hassenmosa17@gmail.com', role: 'Super Admin', status: 'Active', createdAt: '2026-01-10T08:00:00Z', lastLogin: new Date().toISOString() },
@@ -129,10 +167,13 @@ const state = {
   adminLoginModalOpen: false,
   loginTab: 'signin', // 'signin' | 'register' | 'reset'
   adminPortalOpen: false,
-  adminTab: 'pubs', // 'pubs' | 'exps' | 'inbox' | 'accounts'
+  adminTab: 'pubs', // 'pubs' | 'exps' | 'inbox' | 'accounts' | 'profile' | 'gallery'
   adminNotice: null,
+  profileNotice: null,
+  galleryNotice: null,
   pubModalOpen: false,
   editingPub: null,
+  editingPhoto: null,
   expModalOpen: false
 };
 
@@ -163,6 +204,14 @@ function initFirestoreSync() {
       renderApp();
     }
   }, (err) => console.warn('Profile Firestore snapshot notice:', err));
+
+  // Gallery Photos
+  onSnapshot(collection(db, 'gallery'), (snap) => {
+    if (!snap.empty) {
+      state.gallery = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      renderApp();
+    }
+  }, (err) => console.warn('Gallery Firestore snapshot notice:', err));
 
   // Contact Messages (Admin)
   onSnapshot(collection(db, 'contactMessages'), (snap) => {
@@ -215,6 +264,7 @@ function renderApp() {
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-16">
       ${renderHero()}
       ${renderPublicationsSection()}
+      ${renderGallerySection()}
       ${renderAnalyticsSection()}
       ${renderExperiencesSection()}
       ${renderGovernanceSection()}
@@ -223,6 +273,7 @@ function renderApp() {
     ${renderFooter()}
     ${renderFloatingAiButton()}
     ${state.aiModalOpen ? renderAiModal() : ''}
+    ${state.activePhotoModal ? renderPhotoModal() : ''}
     ${state.adminLoginModalOpen ? renderAdminLoginModal() : ''}
     ${state.adminPortalOpen ? renderAdminPortal() : ''}
   `;
@@ -235,8 +286,8 @@ function renderHeader() {
     <header class="sticky top-0 z-40 bg-[#0A0D14]/90 backdrop-blur-md border-b border-indigo-500/15 py-4 transition-colors">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 flex items-center justify-center font-serif text-white font-bold text-lg shadow-md glow-indigo">
-            HM
+          <div class="w-10 h-10 rounded-xl overflow-hidden border border-indigo-500/40 shadow-md shrink-0">
+            <img src="${state.profile.profileImage}" alt="${state.profile.name}" class="w-full h-full object-cover" />
           </div>
           <div>
             <h1 class="text-base font-bold text-slate-100 font-serif leading-tight">${state.profile.name}</h1>
@@ -246,6 +297,7 @@ function renderHeader() {
 
         <nav class="hidden md:flex items-center gap-6 text-xs font-semibold uppercase tracking-wider text-slate-300">
           <a href="#publications" class="hover:text-indigo-400 transition-colors">Publications</a>
+          <a href="#gallery" class="hover:text-indigo-400 transition-colors">Photo Gallery</a>
           <a href="#analytics" class="hover:text-indigo-400 transition-colors">Analytics</a>
           <a href="#experience" class="hover:text-indigo-400 transition-colors">Experience</a>
           <a href="#governance" class="hover:text-indigo-400 transition-colors">Governance</a>
@@ -419,6 +471,106 @@ function renderPublicationsSection() {
         `).join('')}
       </div>
     </section>
+  `;
+}
+
+function renderGallerySection() {
+  const filteredGallery = state.gallery.filter(item => {
+    return state.galleryCategory === 'all' || item.category === state.galleryCategory;
+  });
+
+  const categories = ['all', 'Academic & Teaching', 'Research & Fieldwork', 'Conferences & Symposia', 'Campus Life'];
+
+  return `
+    <section id="gallery" class="space-y-6">
+      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-indigo-500/20 pb-4">
+        <div>
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-950/80 border border-indigo-500/30 text-[10px] font-mono-custom text-indigo-300 uppercase font-bold tracking-widest mb-2">
+            📸 Faculty & Clinical Photo Gallery
+          </div>
+          <h2 class="text-2xl md:text-3xl font-serif font-bold text-slate-100">Academic & Fieldwork Gallery</h2>
+          <p class="text-xs md:text-sm text-slate-400">Visual highlights from clinical simulation labs, community maternal research, university symposia, and campus life.</p>
+        </div>
+
+        <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-semibold">
+          ${categories.map(cat => `
+            <button 
+              data-gal-category="${cat}"
+              class="gal-cat-btn px-3 py-1.5 rounded-xl text-[11px] uppercase tracking-wider cursor-pointer transition-all shrink-0 ${
+                state.galleryCategory === cat 
+                  ? 'bg-indigo-600 text-white shadow-md glow-indigo font-bold' 
+                  : 'bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200'
+              }"
+            >
+              ${cat}
+            </button>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        ${filteredGallery.map(photo => `
+          <div class="group rounded-2xl glass-panel border border-slate-800 hover:border-indigo-500/50 overflow-hidden transition-all duration-300 flex flex-col justify-between hover:shadow-xl hover:-translate-y-1">
+            <div class="relative aspect-video overflow-hidden bg-slate-950">
+              <img src="${photo.imageUrl}" alt="${photo.title}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <span class="absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-black/70 backdrop-blur-md border border-white/20 text-indigo-200 text-[10px] font-mono-custom font-bold uppercase">
+                ${photo.category}
+              </span>
+            </div>
+
+            <div class="p-4 space-y-2 flex-1 flex flex-col justify-between">
+              <div>
+                <div class="text-[10px] font-mono-custom text-slate-500 mb-1">${photo.date || 'Faculty Event'}</div>
+                <h3 class="text-sm font-serif font-bold text-slate-100 group-hover:text-indigo-300 transition-colors line-clamp-2">
+                  ${photo.title}
+                </h3>
+                <p class="text-xs text-slate-400 line-clamp-2 mt-1 leading-relaxed">
+                  ${photo.caption}
+                </p>
+              </div>
+
+              <button data-photo-id="${photo.id}" class="open-photo-modal-btn w-full mt-3 py-1.5 px-3 rounded-xl bg-slate-900 hover:bg-indigo-600/80 border border-slate-800 hover:border-indigo-500 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5">
+                <span>🔍 Enlarge Photo</span>
+              </button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </section>
+  `;
+}
+
+function renderPhotoModal() {
+  const photo = state.activePhotoModal;
+  if (!photo) return '';
+
+  return `
+    <div class="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+      <div class="w-full max-w-4xl rounded-2xl glass-panel border border-indigo-500/40 overflow-hidden shadow-2xl relative flex flex-col max-h-[90vh]">
+        <div class="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-0.5 rounded-full bg-indigo-900/80 border border-indigo-400/40 text-indigo-200 text-xs font-mono-custom font-bold">
+              ${photo.category}
+            </span>
+            <span class="text-xs text-slate-400 font-mono-custom">${photo.date}</span>
+          </div>
+          <button id="close-photo-modal-btn" class="px-3 py-1 bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg border border-slate-800 text-xs font-bold cursor-pointer">
+            ✕ Close
+          </button>
+        </div>
+
+        <div class="overflow-y-auto p-4 space-y-4">
+          <div class="rounded-xl overflow-hidden border border-slate-800 bg-black max-h-[55vh] flex items-center justify-center">
+            <img src="${photo.imageUrl}" alt="${photo.title}" class="max-h-[55vh] w-auto object-contain" />
+          </div>
+
+          <div class="space-y-2 p-2">
+            <h3 class="text-xl font-serif font-bold text-slate-100">${photo.title}</h3>
+            <p class="text-xs md:text-sm text-slate-300 leading-relaxed font-sans">${photo.caption}</p>
+          </div>
+        </div>
+      </div>
+    </div>
   `;
 }
 
@@ -831,6 +983,12 @@ function renderAdminPortal() {
           <button data-tab="exps" class="admin-tab-btn px-4 py-2 rounded-xl cursor-pointer ${state.adminTab === 'exps' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-900 text-slate-400 hover:text-slate-200'}">
             Experiences (${state.experiences.length})
           </button>
+          <button data-tab="gallery" class="admin-tab-btn px-4 py-2 rounded-xl cursor-pointer ${state.adminTab === 'gallery' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-900 text-slate-400 hover:text-slate-200'}">
+            Photo Gallery (${state.gallery.length})
+          </button>
+          <button data-tab="profile" class="admin-tab-btn px-4 py-2 rounded-xl cursor-pointer ${state.adminTab === 'profile' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-900 text-slate-400 hover:text-slate-200'}">
+            Profile & Avatar
+          </button>
           <button data-tab="inbox" class="admin-tab-btn px-4 py-2 rounded-xl cursor-pointer ${state.adminTab === 'inbox' ? 'bg-indigo-600 text-white shadow-md' : 'bg-slate-900 text-slate-400 hover:text-slate-200'}">
             Inbox (${state.messages.length})
           </button>
@@ -841,8 +999,247 @@ function renderAdminPortal() {
 
         ${state.adminTab === 'pubs' ? renderAdminPubsTab() : ''}
         ${state.adminTab === 'exps' ? renderAdminExpsTab() : ''}
+        ${state.adminTab === 'gallery' ? renderAdminGalleryTab() : ''}
+        ${state.adminTab === 'profile' ? renderAdminProfileTab() : ''}
         ${state.adminTab === 'inbox' ? renderAdminInboxTab() : ''}
         ${state.adminTab === 'accounts' ? renderAdminAccountsTab() : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderAdminProfileTab() {
+  return `
+    <div class="space-y-6 animate-fade-in">
+      <div class="p-6 rounded-2xl glass-panel border border-indigo-500/30 space-y-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-indigo-500/20 pb-4">
+          <div>
+            <h3 class="text-xl font-serif font-bold text-slate-100">Faculty Profile & Profile Picture</h3>
+            <p class="text-xs text-indigo-300">Update your profile avatar, official title, academic background, contact details, and social research links.</p>
+          </div>
+          ${state.profileNotice ? `
+            <div class="px-3 py-1.5 rounded-lg bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-xs font-bold font-mono-custom animate-pulse">
+              ${state.profileNotice}
+            </div>
+          ` : ''}
+        </div>
+
+        <form id="admin-profile-form" class="space-y-6 text-xs">
+          <!-- Profile Picture Section -->
+          <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-4">
+            <h4 class="font-bold text-indigo-300 text-xs uppercase tracking-wider">1. Profile Picture & Avatar</h4>
+            
+            <div class="flex flex-col sm:flex-row items-center gap-6">
+              <div class="shrink-0 text-center">
+                <div class="w-28 h-28 rounded-2xl overflow-hidden border-2 border-indigo-500/50 shadow-xl mx-auto bg-slate-950">
+                  <img id="avatar-preview-img" src="${state.profile.profileImage}" alt="Preview" class="w-full h-full object-cover" />
+                </div>
+                <span class="text-[10px] text-slate-400 mt-1 block">Current Avatar</span>
+              </div>
+
+              <div class="flex-1 space-y-3 w-full">
+                <div>
+                  <label class="block font-semibold text-slate-300 mb-1">Profile Image URL</label>
+                  <input type="text" id="profile-image-input" value="${state.profile.profileImage}" required placeholder="https://..." class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500 font-mono-custom" />
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                  <label for="avatar-file-input" class="px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/60 border border-indigo-500/40 text-indigo-200 text-xs font-bold cursor-pointer transition-colors">
+                    📁 Upload Local Photo File
+                  </label>
+                  <input type="file" id="avatar-file-input" accept="image/*" class="hidden" />
+
+                  <span class="text-[10px] text-slate-500 font-mono-custom">Or choose preset:</span>
+                  <button type="button" data-preset="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=600" class="preset-avatar-btn px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] cursor-pointer">
+                    Academic Male
+                  </button>
+                  <button type="button" data-preset="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=600" class="preset-avatar-btn px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] cursor-pointer">
+                    Clinical Lab
+                  </button>
+                  <button type="button" data-preset="https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=600" class="preset-avatar-btn px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] cursor-pointer">
+                    Medical Doctor
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Academic & Bio Information -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Full Name *</label>
+              <input type="text" id="profile-name-input" value="${state.profile.name}" required class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Academic Title *</label>
+              <input type="text" id="profile-title-input" value="${state.profile.title}" required class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">University Institution *</label>
+              <input type="text" id="profile-university-input" value="${state.profile.university}" required class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">College / Department</label>
+              <input type="text" id="profile-department-input" value="${state.profile.department}" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Location / Campus</label>
+              <input type="text" id="profile-location-input" value="${state.profile.location}" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Official Email Address *</label>
+              <input type="email" id="profile-email-input" value="${state.profile.email}" required class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500 font-mono-custom" />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Phone Number</label>
+              <input type="text" id="profile-phone-input" value="${state.profile.phone}" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500 font-mono-custom" />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">ORCID ID Identifier</label>
+              <input type="text" id="profile-orcid-input" value="${state.profile.orcid}" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500 font-mono-custom" />
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Academic & Clinical Bio Summary</label>
+            <textarea id="profile-bio-input" rows="4" class="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500 leading-relaxed">${state.profile.bio}</textarea>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Google Scholar URL</label>
+              <input type="url" id="profile-scholar-input" value="${state.profile.googleScholar}" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500 font-mono-custom" />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Office & Consultation Hours</label>
+              <input type="text" id="profile-officehours-input" value="${state.profile.officeHours || 'Mon-Thu: 2:00 PM - 5:00 PM (EAT)'}" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500" />
+            </div>
+          </div>
+
+          <button type="submit" class="w-full py-3.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold uppercase tracking-wider cursor-pointer shadow-xl glow-indigo transition-all">
+            💾 Save Profile Updates to Firestore
+          </button>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function renderAdminGalleryTab() {
+  return `
+    <div class="space-y-6 animate-fade-in">
+      <div class="p-6 rounded-2xl glass-panel border border-indigo-500/30 space-y-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-indigo-500/20 pb-4">
+          <div>
+            <h3 class="text-xl font-serif font-bold text-slate-100">Photo Gallery Management</h3>
+            <p class="text-xs text-indigo-300">Upload and manage academic, fieldwork, clinical, and campus photos displayed on the homepage.</p>
+          </div>
+          ${state.galleryNotice ? `
+            <div class="px-3 py-1.5 rounded-lg bg-emerald-950 border border-emerald-500/40 text-emerald-300 text-xs font-bold font-mono-custom animate-pulse">
+              ${state.galleryNotice}
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Add / Edit Photo Form -->
+        <form id="admin-gallery-form" class="space-y-4 text-xs p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+          <h4 class="font-bold text-indigo-300 text-xs uppercase tracking-wider">
+            ${state.editingPhoto ? '✏️ Edit Gallery Photo' : '➕ Add New Gallery Photo'}
+          </h4>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Photo Title *</label>
+              <input type="text" id="gal-title-input" value="${state.editingPhoto ? state.editingPhoto.title : ''}" required placeholder="e.g. Clinical Midwifery Lab Session" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500" />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Category *</label>
+              <select id="gal-category-input" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-indigo-300 focus:outline-none focus:border-indigo-500">
+                <option value="Academic & Teaching" ${state.editingPhoto?.category === 'Academic & Teaching' ? 'selected' : ''}>Academic & Teaching</option>
+                <option value="Research & Fieldwork" ${state.editingPhoto?.category === 'Research & Fieldwork' ? 'selected' : ''}>Research & Fieldwork</option>
+                <option value="Conferences & Symposia" ${state.editingPhoto?.category === 'Conferences & Symposia' ? 'selected' : ''}>Conferences & Symposia</option>
+                <option value="Campus Life" ${state.editingPhoto?.category === 'Campus Life' ? 'selected' : ''}>Campus Life</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Date</label>
+              <input type="date" id="gal-date-input" value="${state.editingPhoto ? state.editingPhoto.date : new Date().toISOString().split('T')[0]}" class="w-full px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500 font-mono-custom" />
+            </div>
+
+            <div>
+              <label class="block font-semibold text-slate-300 mb-1">Image URL or Local Upload *</label>
+              <div class="flex gap-2">
+                <input type="text" id="gal-image-input" value="${state.editingPhoto ? state.editingPhoto.imageUrl : ''}" required placeholder="https://..." class="flex-1 px-3.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500 font-mono-custom" />
+                <label for="gal-file-input" class="px-3 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/60 border border-indigo-500/40 text-indigo-200 text-xs font-bold cursor-pointer transition-colors shrink-0">
+                  📁 File
+                </label>
+                <input type="file" id="gal-file-input" accept="image/*" class="hidden" />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label class="block font-semibold text-slate-300 mb-1">Caption / Research Description</label>
+            <textarea id="gal-caption-input" rows="2" placeholder="Brief explanation of research findings, fieldwork location, or academic activity..." class="w-full p-3 rounded-xl bg-slate-950 border border-slate-800 text-slate-100 focus:outline-none focus:border-indigo-500 leading-relaxed">${state.editingPhoto ? state.editingPhoto.caption : ''}</textarea>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button type="submit" class="px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold uppercase tracking-wider cursor-pointer shadow-md transition-all">
+              ${state.editingPhoto ? 'Update Gallery Item' : 'Publish to Photo Gallery'}
+            </button>
+            ${state.editingPhoto ? `
+              <button type="button" id="cancel-edit-photo-btn" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold cursor-pointer">
+                Cancel
+              </button>
+            ` : ''}
+          </div>
+        </form>
+
+        <!-- Current Gallery Table/Grid -->
+        <div class="space-y-4">
+          <h4 class="font-bold text-slate-200 text-sm">Published Gallery Photos (${state.gallery.length})</h4>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            ${state.gallery.map(item => `
+              <div class="p-3 rounded-xl glass-panel border border-slate-800 flex flex-col justify-between gap-3 text-xs">
+                <div class="space-y-2">
+                  <div class="aspect-video rounded-lg overflow-hidden border border-slate-800 bg-slate-950">
+                    <img src="${item.imageUrl}" alt="${item.title}" class="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <span class="px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 text-[10px] font-mono-custom font-bold uppercase">
+                      ${item.category}
+                    </span>
+                    <h5 class="font-bold text-slate-100 text-sm mt-1">${item.title}</h5>
+                    <p class="text-slate-400 text-[11px] line-clamp-2 mt-1">${item.caption}</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-between border-t border-slate-800/80 pt-2 text-[10px]">
+                  <span class="text-slate-500 font-mono-custom">${item.date || ''}</span>
+                  <div class="flex items-center gap-2">
+                    <button data-edit-photo-id="${item.id}" class="edit-photo-btn px-2.5 py-1 rounded bg-indigo-900/50 hover:bg-indigo-600 text-indigo-200 font-bold cursor-pointer">
+                      Edit
+                    </button>
+                    <button data-delete-photo-id="${item.id}" class="delete-photo-btn px-2.5 py-1 rounded bg-rose-900/60 hover:bg-rose-600 text-rose-200 font-bold cursor-pointer">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
       </div>
     </div>
   `;
@@ -1079,6 +1476,188 @@ function attachEventListeners() {
     btn.addEventListener('click', (e) => {
       state.activeCategory = e.currentTarget.dataset.category;
       renderApp();
+    });
+  });
+
+  // Gallery category filter
+  document.querySelectorAll('.gal-cat-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      state.galleryCategory = e.currentTarget.dataset.galCategory;
+      renderApp();
+    });
+  });
+
+  // Open & close photo lightbox modal
+  document.querySelectorAll('.open-photo-modal-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const photoId = e.currentTarget.dataset.photoId;
+      state.activePhotoModal = state.gallery.find(p => p.id === photoId) || null;
+      renderApp();
+    });
+  });
+
+  document.getElementById('close-photo-modal-btn')?.addEventListener('click', () => {
+    state.activePhotoModal = null;
+    renderApp();
+  });
+
+  // Admin Profile Form Submission
+  document.getElementById('admin-profile-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const profileImage = document.getElementById('profile-image-input').value;
+    const name = document.getElementById('profile-name-input').value;
+    const title = document.getElementById('profile-title-input').value;
+    const university = document.getElementById('profile-university-input').value;
+    const department = document.getElementById('profile-department-input').value;
+    const location = document.getElementById('profile-location-input').value;
+    const email = document.getElementById('profile-email-input').value;
+    const phone = document.getElementById('profile-phone-input').value;
+    const orcid = document.getElementById('profile-orcid-input').value;
+    const bio = document.getElementById('profile-bio-input').value;
+    const googleScholar = document.getElementById('profile-scholar-input').value;
+    const officeHours = document.getElementById('profile-officehours-input').value;
+
+    const updatedProfile = {
+      ...state.profile,
+      profileImage, name, title, university, department, location,
+      email, phone, orcid, bio, googleScholar, officeHours
+    };
+
+    try {
+      // 1. Save to Firestore
+      await setDoc(doc(db, 'profile', 'main'), updatedProfile);
+
+      // 2. Save to Express server
+      await fetch('/api/admin/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${state.adminUser?.token || 'token'}`
+        },
+        body: JSON.stringify(updatedProfile)
+      });
+
+      state.profile = updatedProfile;
+      state.profileNotice = 'Profile and avatar saved to Firestore!';
+      renderApp();
+
+      setTimeout(() => {
+        state.profileNotice = null;
+        renderApp();
+      }, 3000);
+    } catch (err) {
+      alert('Error updating profile: ' + err.message);
+    }
+  });
+
+  // Preset avatar buttons
+  document.querySelectorAll('.preset-avatar-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const presetUrl = e.currentTarget.dataset.preset;
+      const urlInput = document.getElementById('profile-image-input');
+      const previewImg = document.getElementById('avatar-preview-img');
+      if (urlInput) urlInput.value = presetUrl;
+      if (previewImg) previewImg.src = presetUrl;
+    });
+  });
+
+  // Avatar local file upload
+  document.getElementById('avatar-file-input')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target.result;
+        const urlInput = document.getElementById('profile-image-input');
+        const previewImg = document.getElementById('avatar-preview-img');
+        if (urlInput) urlInput.value = dataUrl;
+        if (previewImg) previewImg.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // Gallery local file upload
+  document.getElementById('gal-file-input')?.addEventListener('change', (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const dataUrl = event.target.result;
+        const imageInput = document.getElementById('gal-image-input');
+        if (imageInput) imageInput.value = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // Admin Gallery Form Submission (Add or Edit)
+  document.getElementById('admin-gallery-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const title = document.getElementById('gal-title-input').value;
+    const category = document.getElementById('gal-category-input').value;
+    const date = document.getElementById('gal-date-input').value;
+    const imageUrl = document.getElementById('gal-image-input').value;
+    const caption = document.getElementById('gal-caption-input').value;
+
+    try {
+      if (state.editingPhoto) {
+        // Edit existing
+        const photoDocRef = doc(db, 'gallery', state.editingPhoto.id);
+        const updatedPhoto = { title, category, date, imageUrl, caption };
+        await setDoc(photoDocRef, updatedPhoto, { merge: true });
+        
+        state.editingPhoto = null;
+        state.galleryNotice = 'Photo details updated!';
+      } else {
+        // Add new
+        const photoId = `gal-${Date.now()}`;
+        const newPhoto = {
+          title, category, date, imageUrl, caption,
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'gallery', photoId), newPhoto);
+        state.galleryNotice = 'New photo published to gallery!';
+      }
+
+      renderApp();
+      setTimeout(() => {
+        state.galleryNotice = null;
+        renderApp();
+      }, 3000);
+    } catch (err) {
+      alert('Error saving gallery item: ' + err.message);
+    }
+  });
+
+  // Edit photo button
+  document.querySelectorAll('.edit-photo-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const photoId = e.currentTarget.dataset.editPhotoId;
+      state.editingPhoto = state.gallery.find(p => p.id === photoId) || null;
+      renderApp();
+    });
+  });
+
+  // Cancel edit photo button
+  document.getElementById('cancel-edit-photo-btn')?.addEventListener('click', () => {
+    state.editingPhoto = null;
+    renderApp();
+  });
+
+  // Delete photo button
+  document.querySelectorAll('.delete-photo-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      const photoId = e.currentTarget.dataset.deletePhotoId;
+      if (confirm('Delete this photo from the gallery?')) {
+        try {
+          await deleteDoc(doc(db, 'gallery', photoId));
+          state.gallery = state.gallery.filter(p => p.id !== photoId);
+          renderApp();
+        } catch (err) {
+          alert('Error deleting photo: ' + err.message);
+        }
+      }
     });
   });
 

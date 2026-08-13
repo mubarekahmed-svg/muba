@@ -31,6 +31,16 @@ service cloud.firestore {
       );
     }
 
+    // Admin Users / Co-Admin Accounts
+    match /adminUsers/{userId} {
+      allow read, create, update, delete: if true;
+    }
+
+    // Security Audit & Login Event Logs
+    match /auditLogs/{logId} {
+      allow read, create: if true;
+    }
+
     // Publications
     match /publications/{pubId} {
       allow read: if true;
@@ -47,6 +57,12 @@ service cloud.firestore {
     match /profile/{profileId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // Photo Gallery
+    match /gallery/{photoId} {
+      allow read: if true;
+      allow create, update, delete: if isAdmin();
     }
 
     // Inbound Contact Messages
