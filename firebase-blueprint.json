@@ -68,32 +68,6 @@
         "read": { "type": "boolean" }
       },
       "required": ["name", "email", "subject", "message"]
-    },
-    "adminUser": {
-      "title": "AdminUser",
-      "description": "Authorized administrator user account",
-      "type": "object",
-      "properties": {
-        "username": { "type": "string", "maxLength": 100 },
-        "email": { "type": "string", "maxLength": 200 },
-        "role": { "type": "string", "maxLength": 50 },
-        "status": { "type": "string", "maxLength": 50 },
-        "createdAt": { "type": "string", "maxLength": 100 },
-        "lastLogin": { "type": "string", "maxLength": 100 }
-      },
-      "required": ["username", "email", "role"]
-    },
-    "auditLog": {
-      "title": "AuditLog",
-      "description": "Administrative security audit log event",
-      "type": "object",
-      "properties": {
-        "event": { "type": "string", "maxLength": 200 },
-        "user": { "type": "string", "maxLength": 200 },
-        "details": { "type": "string", "maxLength": 1000 },
-        "timestamp": { "type": "string", "maxLength": 100 }
-      },
-      "required": ["event", "timestamp"]
     }
   },
   "firestore": {
@@ -112,14 +86,6 @@
     "/contactMessages/{msgId}": {
       "schema": { "$ref": "#/entities/contactMessage" },
       "description": "Academic messages and proposal inquiries"
-    },
-    "/adminUsers/{userId}": {
-      "schema": { "$ref": "#/entities/adminUser" },
-      "description": "Authorized co-administrator user accounts"
-    },
-    "/auditLogs/{logId}": {
-      "schema": { "$ref": "#/entities/auditLog" },
-      "description": "Security audit logs and access event stream"
     }
   }
 }
